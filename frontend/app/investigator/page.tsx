@@ -3,12 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProtectedLayout } from '@/components/protected-layout';
-import {
-  INVESTIGATION_NOTES_UPDATED_EVENT,
-  INVESTIGATION_NOTES_STORAGE_KEY,
-  InvestigationNotes,
-  type InvestigationNote,
-} from '@/components/investigation-notes';
+import { InvestigationNotes } from '@/components/investigation-notes';
+import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { mockEvidence } from '@/lib/mock-data';
 import { StatusBadge } from '@/components/status-badge';
@@ -16,7 +12,7 @@ import { StatusBadge } from '@/components/status-badge';
 export default function InvestigatorReportsPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
-  const [reports, setReports] = useState<InvestigationNote[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
 
@@ -26,41 +22,29 @@ export default function InvestigatorReportsPage() {
     }
   }, [isLoading, user, router]);
 
+  const loadReports = async () => {
+    try {
+      const data = await api.getAllVersions();
+      setReports(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load reports:', err);
+    }
+  };
+
   useEffect(() => {
-    const loadReports = () => {
-      try {
-        const raw = localStorage.getItem(INVESTIGATION_NOTES_STORAGE_KEY);
-        if (!raw) {
-          setReports([]);
-          return;
-        }
-
-        const parsed = JSON.parse(raw);
-        setReports(Array.isArray(parsed) ? (parsed as InvestigationNote[]) : []);
-      } catch {
-        setReports([]);
-      }
-    };
-
     loadReports();
-    window.addEventListener('storage', loadReports);
-    window.addEventListener(INVESTIGATION_NOTES_UPDATED_EVENT, loadReports);
-    return () => {
-      window.removeEventListener('storage', loadReports);
-      window.removeEventListener(INVESTIGATION_NOTES_UPDATED_EVENT, loadReports);
-    };
   }, []);
 
   const groupedReports = useMemo(() => {
-    const groups = reports.reduce<Record<string, InvestigationNote[]>>((acc, report) => {
-      acc[report.evidenceId] = acc[report.evidenceId] ?? [];
-      acc[report.evidenceId].push(report);
+    const groups = reports.reduce<Record<string, any[]>>((acc, report) => {
+      acc[report.evidence_id] = acc[report.evidence_id] ?? [];
+      acc[report.evidence_id].push(report);
       return acc;
     }, {});
 
-    Object.keys(groups).forEach((evidenceId) => {
-      groups[evidenceId].sort(
-        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    Object.keys(groups).forEach((evidence_id) => {
+      groups[evidence_id].sort(
+        (a, b) => new Date(b.version_time).getTime() - new Date(a.version_time).getTime()
       );
     });
 
@@ -75,9 +59,9 @@ export default function InvestigatorReportsPage() {
   const lastActivity = useMemo(() => {
     if (reports.length === 0) return null;
     const latest = reports.reduce((max, report) =>
-      new Date(report.timestamp).getTime() > new Date(max.timestamp).getTime() ? report : max
+      new Date(report.version_time).getTime() > new Date(max.version_time).getTime() ? report : max
     );
-    return latest.timestamp;
+    return latest.version_time;
   }, [reports]);
 
   if (isLoading) {
@@ -165,7 +149,10 @@ export default function InvestigatorReportsPage() {
 
         <InvestigationNotes
           open={isNotesOpen}
-          onOpenChange={setIsNotesOpen}
+          onOpenChange={(open) => {
+            setIsNotesOpen(open);
+            if (!open) loadReports(); // refresh when closing drawer
+          }}
           evidenceId={selectedEvidenceId}
           investigatorName={user?.name ?? 'Unknown Investigator'}
         />

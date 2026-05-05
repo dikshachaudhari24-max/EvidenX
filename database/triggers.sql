@@ -6,6 +6,7 @@ USE evidence_vault;
 -- 1. trg_auto_audit_on_version_insert
 --    AFTER INSERT on Evidence_Version → auto-insert Integrity_Audit
 DELIMITER //
+DROP TRIGGER IF EXISTS trg_auto_audit_on_version_insert//
 CREATE TRIGGER trg_auto_audit_on_version_insert
 AFTER INSERT ON Evidence_Version
 FOR EACH ROW
@@ -31,6 +32,7 @@ DELIMITER ;
 -- 2. trg_log_access_on_custody_event
 --    AFTER INSERT on Custody_Event → auto-insert Access_Log
 DELIMITER //
+DROP TRIGGER IF EXISTS trg_log_access_on_custody_event//
 CREATE TRIGGER trg_log_access_on_custody_event
 AFTER INSERT ON Custody_Event
 FOR EACH ROW
@@ -53,6 +55,7 @@ DELIMITER ;
 --    BEFORE UPDATE on Integrity_Audit
 --    Checks if new verified_hash matches stored hash_value in Evidence_Version
 DELIMITER //
+DROP TRIGGER IF EXISTS trg_flag_hash_mismatch//
 CREATE TRIGGER trg_flag_hash_mismatch
 BEFORE UPDATE ON Integrity_Audit
 FOR EACH ROW
@@ -65,8 +68,9 @@ BEGIN
     LIMIT 1;
 
     IF stored_hash IS NOT NULL AND NEW.verified_hash != stored_hash THEN
-        SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'HASH MISMATCH: The verified hash does not match the stored hash value in Evidence_Version. Possible evidence tampering detected.';
+        SET NEW.result = 'FAIL';
+    ELSEIF stored_hash IS NOT NULL AND NEW.verified_hash = stored_hash THEN
+        SET NEW.result = 'PASS';
     END IF;
 END//
 DELIMITER ;
@@ -75,6 +79,7 @@ DELIMITER ;
 --    BEFORE DELETE on Evidence
 --    Checks if any Custody_Event exists for any version of that evidence
 DELIMITER //
+DROP TRIGGER IF EXISTS trg_prevent_evidence_delete//
 CREATE TRIGGER trg_prevent_evidence_delete
 BEFORE DELETE ON Evidence
 FOR EACH ROW

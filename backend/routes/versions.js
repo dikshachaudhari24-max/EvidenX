@@ -3,6 +3,22 @@ const router = express.Router();
 const pool = require('../db/connection');
 const { v4: uuidv4 } = require('uuid');
 
+// GET / — get all versions
+router.get('/', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT ev.*, e.description AS evidence_description, e.case_id 
+       FROM Evidence_Version ev
+       JOIN Evidence e ON ev.evidence_id = e.evidence_id
+       ORDER BY ev.version_time DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /api/versions error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /evidence/:evidenceId — get all versions for an evidence item
 router.get('/evidence/:evidenceId', async (req, res) => {
   try {
@@ -49,6 +65,32 @@ router.post('/', async (req, res) => {
     res.status(201).json(created[0]);
   } catch (err) {
     console.error('POST /api/versions error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /:id — update a version's notes
+router.put('/:id', async (req, res) => {
+  try {
+    const { notes } = req.body;
+    await pool.query(
+      'UPDATE Evidence_Version SET notes = ? WHERE version_id = ?',
+      [notes || null, req.params.id]
+    );
+    res.json({ message: 'Version updated successfully' });
+  } catch (err) {
+    console.error('PUT /api/versions/:id error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /:id — delete a version
+router.delete('/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM Evidence_Version WHERE version_id = ?', [req.params.id]);
+    res.json({ message: 'Version deleted successfully' });
+  } catch (err) {
+    console.error('DELETE /api/versions/:id error:', err);
     res.status(500).json({ error: err.message });
   }
 });

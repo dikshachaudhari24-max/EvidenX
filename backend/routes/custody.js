@@ -88,4 +88,30 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PUT /:id — update custody event
+router.put('/:id', async (req, res) => {
+  try {
+    const { action_type, location, notes } = req.body;
+    await pool.query(
+      'UPDATE Custody_Event SET action_type = COALESCE(?, action_type), location = COALESCE(?, location), notes = COALESCE(?, notes) WHERE event_id = ?',
+      [action_type, location, notes, req.params.id]
+    );
+    res.json({ message: 'Custody event updated successfully' });
+  } catch (err) {
+    console.error('PUT /api/custody/:id error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /:id — delete custody event
+router.delete('/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM Custody_Event WHERE event_id = ?', [req.params.id]);
+    res.json({ message: 'Custody event deleted successfully' });
+  } catch (err) {
+    console.error('DELETE /api/custody/:id error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

@@ -2,9 +2,11 @@
 
 import { ProtectedLayout } from '@/components/protected-layout';
 import { AddCustodyEventModal } from '@/components/add-custody-event-modal';
+import { EditCustodyModal } from '@/components/edit-custody-modal';
 import { api } from '@/lib/api';
 import { useState, useEffect } from 'react';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Edit2, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const eventTypeColors: Record<string, string> = {
   received: 'bg-blue-500',
@@ -21,6 +23,19 @@ export default function CustodyEventsPage() {
   const [loading, setLoading] = useState(true);
   const [chainLoading, setChainLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<any | null>(null);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this custody event?')) return;
+    try {
+      await api.deleteCustodyEvent(id);
+      toast.success('Custody event deleted');
+      loadChain();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete event');
+    }
+  };
 
   const loadChain = async (evidenceIdToLoad?: string) => {
     const targetId = evidenceIdToLoad || selectedEvidenceId;
@@ -130,26 +145,47 @@ export default function CustodyEventsPage() {
               ) : custodyChain.length > 0 ? (
                 <div className="space-y-4">
                   {custodyChain.map((event, idx) => (
-                    <div key={event.event_id} className="flex gap-4">
+                    <div key={event.event_id} className="flex gap-4 group">
                       <div className="flex flex-col items-center">
                         <div
                           className={`w-3 h-3 rounded-full ${eventTypeColors[event.action_type] || 'bg-slate-500'}`}
                         />
                         {idx < custodyChain.length - 1 && <div className="w-0.5 h-12 bg-slate-700 my-2" />}
                       </div>
-                      <div className="pb-4 flex-1">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium text-sm capitalize">{event.action_type}</h4>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(event.event_time).toLocaleString()}
-                            </p>
+                      <div className="pb-4 flex-1 flex justify-between items-start">
+                        <div>
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium text-sm capitalize">{event.action_type}</h4>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {new Date(event.event_time).toLocaleString()}
+                              </p>
+                            </div>
+                            <span className="text-xs text-muted-foreground ml-4">{event.actor_badge}</span>
                           </div>
-                          <span className="text-xs text-muted-foreground">{event.actor_badge}</span>
+                          <p className="text-sm text-muted-foreground mt-2">{event.actor_name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{event.location}</p>
+                          {event.notes && <p className="text-xs mt-2 text-slate-400">{event.notes}</p>}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-2">{event.actor_name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{event.location}</p>
-                        {event.notes && <p className="text-xs mt-2 text-slate-400">{event.notes}</p>}
+                        <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                          <button
+                            onClick={() => {
+                              setEventToEdit(event);
+                              setIsEditModalOpen(true);
+                            }}
+                            className="p-1.5 text-zinc-400 hover:text-amber-400 bg-zinc-800/50 hover:bg-zinc-800 rounded-md transition-colors"
+                            title="Edit Event"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(event.event_id)}
+                            className="p-1.5 text-zinc-400 hover:text-red-400 bg-zinc-800/50 hover:bg-zinc-800 rounded-md transition-colors"
+                            title="Delete Event"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -198,6 +234,13 @@ export default function CustodyEventsPage() {
           open={isModalOpen}
           onOpenChange={setIsModalOpen}
           evidenceId={selectedEvidenceId}
+          onSuccess={() => loadChain()}
+        />
+
+        <EditCustodyModal
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          event={eventToEdit}
           onSuccess={() => loadChain()}
         />
       </div>

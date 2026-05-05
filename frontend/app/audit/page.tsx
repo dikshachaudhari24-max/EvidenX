@@ -2,9 +2,10 @@
 
 import { ProtectedLayout } from '@/components/protected-layout';
 import { api } from '@/lib/api';
-import { AlertCircle, AlertTriangle, Info, CheckCircle, Loader2, Zap } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Info, CheckCircle, Loader2, Zap, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { AuditModal } from '@/components/audit-modal';
 
 export default function IntegrityAuditPage() {
   const [audits, setAudits] = useState<any[]>([]);
@@ -13,6 +14,20 @@ export default function IntegrityAuditPage() {
   const [filterResult, setFilterResult] = useState<string | null>(null);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchResults, setBatchResults] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [auditToEdit, setAuditToEdit] = useState<any | null>(null);
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this audit record?')) return;
+    try {
+      await api.deleteAudit(id);
+      toast.success('Audit record deleted');
+      loadAudits();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete record');
+    }
+  };
 
   const loadAudits = async () => {
     try {
@@ -48,11 +63,17 @@ export default function IntegrityAuditPage() {
             <h1 className="text-3xl font-bold text-foreground">Integrity Audit</h1>
             <p className="text-muted-foreground mt-2">System health and data integrity monitoring</p>
           </div>
-          <button onClick={handleBatchAudit} disabled={batchRunning}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg transition-colors text-sm font-medium">
-            {batchRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            Run Batch Audit
-          </button>
+          <div className="flex gap-3">
+            <button onClick={() => { setAuditToEdit(null); setIsModalOpen(true); }}
+              className="flex items-center gap-2 px-4 py-2 border border-zinc-700 hover:bg-zinc-800 text-zinc-200 rounded-lg transition-colors text-sm font-medium">
+              <Plus className="w-4 h-4" /> Log Manual Audit
+            </button>
+            <button onClick={handleBatchAudit} disabled={batchRunning}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg transition-colors text-sm font-medium">
+              {batchRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              Run Batch Audit
+            </button>
+          </div>
         </div>
 
         {batchResults && (
@@ -99,10 +120,20 @@ export default function IntegrityAuditPage() {
                     </div>
                   </button>
                   {isExpanded && (
-                    <div className="px-6 py-4 border-t border-border bg-slate-950/50 space-y-3">
+                    <div className="px-6 py-4 border-t border-border bg-slate-950/50 space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div><p className="text-xs text-muted-foreground">Stored Hash</p><p className="text-foreground font-mono text-xs break-all mt-1">{audit.stored_hash}</p></div>
                         <div><p className="text-xs text-muted-foreground">Verified Hash</p><p className={`font-mono text-xs break-all mt-1 ${isPass ? 'text-emerald-400' : 'text-red-400'}`}>{audit.verified_hash}</p></div>
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+                        <button onClick={(e) => { e.stopPropagation(); setAuditToEdit(audit); setIsModalOpen(true); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 hover:text-amber-400 bg-zinc-900 rounded-md transition-colors">
+                          <Edit2 className="w-3.5 h-3.5" /> Edit
+                        </button>
+                        <button onClick={(e) => handleDelete(audit.audit_id, e)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 hover:text-red-400 bg-zinc-900 rounded-md transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
+                        </button>
                       </div>
                     </div>
                   )}
@@ -112,6 +143,13 @@ export default function IntegrityAuditPage() {
           </div>
         )}
         {!loading && filtered.length === 0 && <div className="text-center py-12 text-muted-foreground">No audit records found</div>}
+        
+        <AuditModal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          audit={auditToEdit}
+          onSuccess={() => loadAudits()}
+        />
       </div>
     </ProtectedLayout>
   );

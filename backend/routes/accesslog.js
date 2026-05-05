@@ -40,6 +40,42 @@ router.get('/version/:versionId', async (req, res) => {
   }
 });
 
+// POST / — manually create access log entry
+router.post('/', async (req, res) => {
+  try {
+    const { version_id, action_type } = req.body;
+    if (!version_id || !action_type) {
+      return res.status(400).json({ error: 'version_id and action_type are required' });
+    }
+    const { v4: uuidv4 } = require('uuid');
+    const log_id = uuidv4();
+    const access_time = new Date();
+    await pool.query(
+      'INSERT INTO Access_Log (log_id, version_id, access_time, action_type) VALUES (?, ?, ?, ?)',
+      [log_id, version_id, access_time, action_type]
+    );
+    res.status(201).json({ log_id, version_id, access_time, action_type });
+  } catch (err) {
+    console.error('POST /api/accesslog error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /:id — update access log entry
+router.put('/:id', async (req, res) => {
+  try {
+    const { action_type } = req.body;
+    await pool.query(
+      'UPDATE Access_Log SET action_type = COALESCE(?, action_type) WHERE log_id = ?',
+      [action_type, req.params.id]
+    );
+    res.json({ message: 'Access log updated successfully' });
+  } catch (err) {
+    console.error('PUT /api/accesslog/:id error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE /:id — delete a single log entry
 router.delete('/:id', async (req, res) => {
   try {

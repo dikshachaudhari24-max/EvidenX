@@ -41,7 +41,28 @@ router.get('/evidence/:evidenceId', async (req, res) => {
   }
 });
 
-// POST /run — manually trigger an audit
+// POST / — manually create an audit record
+router.post('/', async (req, res) => {
+  try {
+    const { evidence_id, version_id, verified_hash, result } = req.body;
+    if (!evidence_id || !version_id || !result) {
+      return res.status(400).json({ error: 'evidence_id, version_id, and result are required' });
+    }
+    const audit_id = uuidv4();
+    const audit_time = new Date();
+    await pool.query(
+      `INSERT INTO Integrity_Audit (audit_id, evidence_id, version_id, verified_hash, audit_time, result)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [audit_id, evidence_id, version_id, verified_hash || null, audit_time, result]
+    );
+    res.status(201).json({ audit_id, evidence_id, version_id, result });
+  } catch (err) {
+    console.error('POST /api/audit error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /run — trigger an audit check with expected hash
 router.post('/run', async (req, res) => {
   try {
     const { evidence_id, expected_hash } = req.body;
@@ -153,6 +174,32 @@ router.post('/batch', async (req, res) => {
     });
   } catch (err) {
     console.error('POST /api/audit/batch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /:id — update an audit record manually
+router.put('/:id', async (req, res) => {
+  try {
+    const { result, verified_hash } = req.body;
+    await pool.query(
+      'UPDATE Integrity_Audit SET result = COALESCE(?, result), verified_hash = COALESCE(?, verified_hash) WHERE audit_id = ?',
+      [result, verified_hash, req.params.id]
+    );
+    res.json({ message: 'Audit record updated successfully' });
+  } catch (err) {
+    console.error('PUT /api/audit/:id error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /:id — delete an audit record
+router.delete('/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM Integrity_Audit WHERE audit_id = ?', [req.params.id]);
+    res.json({ message: 'Audit record deleted successfully' });
+  } catch (err) {
+    console.error('DELETE /api/audit/:id error:', err);
     res.status(500).json({ error: err.message });
   }
 });

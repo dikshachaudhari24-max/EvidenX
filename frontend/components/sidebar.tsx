@@ -15,12 +15,16 @@ import {
   Package,
   NotebookPen,
   LogOut,
+  FileStack,
+  FileKey2,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   { href: '/evidence', label: 'Evidence', icon: Package },
+  { href: '/versions', label: 'Evidence Versions', icon: FileStack },
   { href: '/custody-events', label: 'Custody Events', icon: FileText },
+  { href: '/access-logs', label: 'Access Logs', icon: FileKey2 },
   { href: '/actors', label: 'Actors', icon: Users },
   { href: '/sql-views', label: 'SQL Views', icon: Database },
   { href: '/triggers', label: 'Triggers', icon: Zap },
